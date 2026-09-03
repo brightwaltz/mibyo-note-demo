@@ -162,9 +162,9 @@ main{max-width:1180px; margin:0 auto; padding:34px 24px 90px}
   display:block; width:100%; text-align:center; background:var(--accent); color:#fff;
   border:0; border-radius:9px; padding:14px; font-size:15px; font-weight:700; letter-spacing:.04em;
 }
-:root[data-theme="dark"] .btn, :root:not([data-theme="light"]) .btn{color:#101614}
-@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .btn{color:#fff}}
-.btn.ghost{background:none; color:var(--accent-ink); border:1px solid var(--line2); font-weight:500; font-size:13.5px; padding:11px}
+:root[data-theme="dark"] .btn:not(.ghost), :root:not([data-theme="light"]) .btn:not(.ghost){color:#101614}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .btn:not(.ghost){color:#fff}}
+.btn.ghost{background:var(--surface); color:var(--accent-ink); border:1px solid var(--accent); font-weight:600; font-size:13.5px; padding:11px}
 .btn.sm{padding:9px; font-size:13px}
 
 .mini{display:flex; align-items:flex-end; gap:5px; height:46px; margin:0 0 6px}
