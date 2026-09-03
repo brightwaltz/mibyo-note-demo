@@ -228,6 +228,14 @@ main{max-width:1180px; margin:0 auto; padding:34px 24px 90px}
 .ratio .bar{flex:1; height:7px; border-radius:4px; background:var(--surface); overflow:hidden}
 .ratio .bar i{display:block; height:100%; background:var(--accent); border-radius:4px}
 .ratio .v{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--accent-ink); font-variant-numeric:tabular-nums}
+.bigword{font-family:"Zen Old Mincho",serif; font-size:29px; line-height:1.3; color:var(--accent-ink); margin:3px 0 0; letter-spacing:.01em}
+.popsel{background:var(--surface2); border:1px dashed var(--line2); border-radius:10px; padding:10px 11px; margin:0 0 13px}
+.popsel .lbl{display:block; font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.07em; color:var(--ink2); margin:0 0 8px; line-height:1.55}
+.popsel .row{display:flex; gap:5px}
+.popsel button{flex:1; background:var(--surface); color:var(--ink2); border:1px solid var(--line2); border-radius:7px; padding:7px 2px; font-family:"IBM Plex Mono",monospace; font-size:9.5px; line-height:1.4; letter-spacing:.02em}
+.popsel button .n{display:block; font-size:12.5px; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums}
+:root .popsel button[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:var(--paper)}
+:root .popsel button[aria-pressed="true"] .n{color:var(--paper)}
 .cmp{display:flex; gap:10px; margin:12px 0 0}
 .cmp div{flex:1; background:var(--surface); border-radius:8px; padding:10px 12px}
 .cmp .k{font-size:10px; color:var(--ink3); font-family:"IBM Plex Mono",monospace}
@@ -427,10 +435,14 @@ footer{border-top:1px solid var(--line); margin-top:56px; padding-top:20px; font
       </div>
 
       <h3>返事①　共感カード</h3>
-      <p>鍼灸院で「この時期、私みたいな人いますか」と聞いて「いますよ」と返ってくる、あの安心を画面上で再現します。年代×性別×地域×節気×体調のコホートで人数を返します。</p>
+      <p>鍼灸院で「この時期、私みたいな人いますか」と聞いて「いますよ」と返ってくる、あの安心を画面上で再現します。年代×性別×地域×節気×体調のコホートで人数を返します。<b>左の端末の「DEMO CONTROL」で登録者数を切り替える</b>と、データが貯まる前の見え方をその場で確認できます。</p>
       <ul class="notelist">
-        <li><b>n≥30 は「実測」、それ未満は「推定」と明示。</b>初期はユーザーが少なく実測が出せないため、統計モデルによる推定値であることを画面に書きます。ここを曖昧にすると研究利用時の倫理審査で止まります</li>
-        <li><b>数ではなく割合も返す。</b>「およそ3人に1人」は人数が少ない立ち上げ期でも成立し、かつ安心の効き目が強い表現です</li>
+        <li><b>階層バックオフで「0人」を構造的に出さない。</b>年代6×性別2×地域8×体質4＝384セルに切ると、1セルが n≥30 に届くには約38,400名が必要です。母数が足りなければ<b>条件を1つずつ外し</b>（地域→体質→性別）、最初に n≥30 を満たした段で返します。文言も「関東の40代女性」から「40代の方」へ正直に落とすだけで、0人にはなりません</li>
+        <li><b>母数で「返すもの」を変える。</b>n≥30 は人数＋「実測」、10≤n&lt;30 は割合のみ＋「推定」、n&lt;10 は人数も割合も出さず節気の傾向カードに差し替えます。<b>どの段でも「返事が返ってこない」ことは起きません</b></li>
+        <li><b>n&lt;10 で人数を出さないのは規約通り。</b>労働安全衛生法の集団分析が10人以上単位であることと同じ基準なので、「隠している」ではなく「規約通り」と説明できます</li>
+        <li><b>割合はベイズ縮約で安定させる。</b>p =（x + 20·p₀）/（n + 20）で上位階層の割合に寄せるため、3人中0人でも 0% にはなりません</li>
+        <li><b>コホートの単位は「いま」ではなく「この節気」。</b>その節気（約15日）に記録があった人で切るため、追加コストなく母数が実質15倍になります</li>
+        <li><b>合成データで人数を水増ししない。</b>表示は推定／実測をラベルで分離し、内部は実測のみ蓄積します。ここを曖昧にすると研究利用時の倫理審査で止まります</li>
       </ul>
 
       <h3>返事②　去年の今頃（回想）</h3>
@@ -674,12 +686,29 @@ function streak(){
   let c=0;for(let k=1;k<500;k++){if(LOG[key(addDays(new Date(),-k))])c++;else break}
   return c;
 }
-/* 共感エンジン（デモ：端末内生成） */
+/* 共感エンジン（デモ：端末内生成）
+   立ち上げ期に「0人」を出さないため、コホートの粒度を母数に応じて動的に落とす。
+   条件を1つずつ外し、最初に n>=30 を満たした段（L0->L4）で返す＝階層バックオフ。 */
+const LEVELS=[
+  {id:"L0",cells:384,who:"関東の40代女性",cond:"年代×性別×地域×体質"},
+  {id:"L1",cells:48, who:"40代女性（冷えタイプ）",cond:"年代×性別×体質"},
+  {id:"L2",cells:12, who:"40代女性",cond:"年代×性別"},
+  {id:"L3",cells:6,  who:"40代の方",cond:"年代のみ"},
+  {id:"L4",cells:1,  who:"未病ノートを使っている方",cond:"全利用者"}
+];
+const POPS=[[30,"開始直後"],[600,"1か月"],[3984,"3か月"],[42000,"外販後"]];
+let POP=3984;                                  /* 登録者数（デモ：切替可） */
+function setPop(v){POP=v; if(LOG[key(new Date())])renderReply();}
 function cohort(itemId,lv,si){
   const r=rnd(hashStr(itemId)*7+lv*31+si*13);
-  const N=3984;
   const p=Math.min(.62,.07+.36*(lv/3)+r*.11);
-  return{N:N,c:Math.round(N*p),p:Math.round(p*100)};
+  let L=LEVELS[LEVELS.length-1];
+  for(const x of LEVELS){if(POP/x.cells*p>=30){L=x;break}}
+  const base=POP/L.cells, c=Math.round(base*p);
+  /* ベイズ縮約：母数が小さいほど全国ベースライン p0 に寄せる（0%を出さない） */
+  const p0=.31,a=20,ps=(base*p+a*p0)/(base+a);
+  return{L:L,N:Math.round(base),c:c,p:Math.round(ps*100),
+         mode:c>=30?"actual":(c>=10?"est":"none")};
 }
 function ratioWord(p){
   if(p>=45)return"およそ2人に1人";
@@ -764,13 +793,31 @@ function renderReply(){
   const prev=avgRange(addDays(ly,-13),addDays(ly,13));
   const diff=(cur&&prev)?cur.v-prev.v:0;
   const html=[];
-  html.push('<div class="card empathy"><span class="lbl">EMPATHY / 同じ節気の人たち</span>'+
-    '<p style="margin:0 0 2px;font-size:13px;color:var(--ink2)">'+SEKKI[s.i][0]+'の関東・40代女性で、いま同じように<br>「'+worst.s+'」と答えた人</p>'+
-    '<div class="bignum">'+co.c.toLocaleString()+'<small>人</small></div>'+
-    '<p class="say">ひとりではありません。</p>'+
-    '<div class="ratio"><div class="bar"><i style="width:'+co.p+'%"></i></div><span class="v">'+co.p+'%</span></div>'+
-    '<p style="margin:8px 0 0;font-size:13.5px;color:var(--ink2)">この節気に「'+worst.s+'」と答えた方は、'+ratioWord(co.p)+'です。</p>'+
-    '<p class="fine">実測値（母数 n='+co.N.toLocaleString()+'）。母数が30人未満の組み合わせでは「推定」と明示して表示します。<br>※本デモの人数は端末内で生成したサンプルです。</p></div>');
+  html.push('<div class="popsel"><span class="lbl">DEMO CONTROL ／ 登録者数を変えると、立ち上げ期の見え方を確認できます</span><div class="row">'+
+    POPS.map(x=>'<button aria-pressed="'+(POP===x[0])+'" onclick="setPop('+x[0]+')"><span class="n">'+x[0].toLocaleString()+'</span>'+x[1]+'</button>').join("")+
+    '</div></div>');
+  const eh='<div class="card empathy"><span class="lbl">EMPATHY / 同じ節気の人たち</span>';
+  if(co.mode==="actual"){
+    html.push(eh+
+      '<p style="margin:0 0 2px;font-size:13px;color:var(--ink2)">'+SEKKI[s.i][0]+'の'+co.L.who+'で、いま同じように<br>「'+worst.s+'」と答えた人</p>'+
+      '<div class="bignum">'+co.c.toLocaleString()+'<small>人</small></div>'+
+      '<p class="say">ひとりではありません。</p>'+
+      '<div class="ratio"><div class="bar"><i style="width:'+co.p+'%"></i></div><span class="v">'+co.p+'%</span></div>'+
+      '<p style="margin:8px 0 0;font-size:13.5px;color:var(--ink2)">この節気に「'+worst.s+'」と答えた方は、'+ratioWord(co.p)+'です。</p>'+
+      '<p class="fine">実測値 ／ '+co.L.id+'：'+co.L.cond+'（コホート母数 n='+co.N.toLocaleString()+' ／ 登録者 '+POP.toLocaleString()+'名）<br>※本デモの人数は端末内で生成したサンプルです。</p></div>');
+  }else if(co.mode==="est"){
+    html.push(eh+
+      '<p style="margin:0 0 2px;font-size:13px;color:var(--ink2)">'+SEKKI[s.i][0]+'のいま、あなたと同じように<br>「'+worst.s+'」と答えている方は</p>'+
+      '<div class="bigword">'+ratioWord(co.p)+'</div>'+
+      '<p class="say">めずらしいことではありません。</p>'+
+      '<div class="ratio"><div class="bar"><i style="width:'+co.p+'%"></i></div><span class="v">'+co.p+'%</span></div>'+
+      '<p class="fine">推定値（全国ベースライン＋ベイズ縮約）／ '+co.L.id+'：'+co.L.cond+'。該当者が30人未満のため人数は出しません。登録者 '+POP.toLocaleString()+'名</p></div>');
+  }else{
+    html.push(eh+
+      '<q>'+SEKKI[s.i][0]+'は、例年この時期に「'+worst.s+'」の相談が増えます。</q>'+
+      '<p style="margin:10px 0 0;font-size:13.5px;color:var(--ink2)">いまは人数をお返しできる母数がありません。かわりに、この節気の傾向と「去年の今頃」をお返しします。</p>'+
+      '<p class="fine">該当者が10人未満のため、人数・割合とも表示しません（労働安全衛生法の集団分析と同じ10人基準）。登録者 '+POP.toLocaleString()+'名</p></div>');
+  }
   /* ② */
   const fell=prev&&prev.v<62;
   html.push('<div class="card recall"><span class="lbl">RECALL / 去年の今頃</span>'+
